@@ -1,337 +1,495 @@
-# CI Test Pass Rate Dashboard
+# CI Failure Tracker - Windows Containers Dashboard
 
-Web dashboard for tracking OpenShift CI test pass rates over time. Focuses on actual test failures (OCP-* tests) with inline log viewing.
+Comprehensive web dashboard for monitoring, analyzing, and tracking Windows Containers CI test failures in OpenShift. Features automated AI analysis, Jira integration, and detailed failure metrics.
 
-**Live Dashboard:** https://winc-dashboard-winc-dashboard.apps.build10.ci.devcluster.openshift.com/
+## Live Dashboards
 
-## Features
+- **Production**: https://winc-dashboard-winc-dashboard.apps.build10.ci.devcluster.openshift.com/
+- **POC (with AI)**: https://winc-dashboard-poc-winc-dashboard-poc.apps.build10.ci.devcluster.openshift.com/
 
-- **On-Demand Data Collection**: Manual refresh button to pull latest test results
-- **Actual Test Logs**: Fetches real stdout/stderr from ReportPortal (not AI summaries)
-- **View Logs in New Tab**: Click to open full test output in clean terminal-style page
-- **OCP Test Focus**: Automatically filters to show only OCP-* tests (excludes infrastructure failures)
-- **Historical Tracking**: SQLite database with 30 days of test history
-- **Real-time Dashboard**: Interactive charts and test rankings
-- **Key Metrics**:
-  - Overall pass rate % over time
-  - Per-test pass rates (identify flaky/failing tests)
-  - Per-version trends (compare 4.21 vs 4.22)
-  - Per-platform comparison (AWS, GCP, Azure, vSphere, Nutanix)
+## Key Features
+
+### Test Failure Tracking
+- Real-time dashboard with test failure metrics
+- Historical tracking (30+ days of test history)
+- Platform-specific failure rates (AWS, Azure, GCP, vSphere, Nutanix)
+- Version comparison (4.21, 4.22, 4.23)
+- Top 100 failing tests with detailed statistics
+
+### Interactive Test Analysis
+- Click any test to view detailed failure information
+- View error logs with syntax highlighting
+- Filter failures by platform (click platform badges)
+- Timestamp and job information for each failure
+- Direct links to CI system (Prow/ReportPortal)
+
+### AI-Powered Failure Analysis (POC)
+- Automated root cause analysis using Claude 4 (Vertex AI)
+- Identifies affected components
+- Provides confidence scores
+- Classifies failure types:
+  - Product bugs
+  - Automation bugs
+  - System issues
+  - Transient failures
+  - Needs investigation
+- Evidence extraction from logs
+- Suggested remediation actions
+- Auto-loads previous analysis from database
+
+### Jira Integration (POC)
+- One-click Jira ticket creation
+- Automatic duplicate detection
+- Minimal ticket description to avoid API limits
+- Links to dashboard and failed job
+- Persistent ticket references
+- Click ticket number to view in Jira
+- No popup for existing tickets
+
+### Manual Classification
+- User-defined test failure classification
+- Save classifications to database
+- Persistent across sessions
+- Independent from AI analysis
+
+### Data Persistence
+- SQLite database with PersistentVolume
+- Survives pod restarts and deployments
+- Stores:
+  - Job runs and test results
+  - AI analyses
+  - Manual classifications
+  - Jira ticket references
+- Optimized with indexes for fast queries
 
 ## Architecture
 
+### System Components
+
 ```
-┌──────────────────────┐
-│  ReportPortal API    │  ← Fetch test results + actual logs
-└──────────┬───────────┘
-           │ On-demand collection (manual refresh)
-           ↓
-┌──────────────────────┐
-│  SQLite Database     │  ← Store 30 days history + logs
-│  (Persistent Volume) │     WAL mode for concurrency
-└──────────┬───────────┘
-           │ Calculate metrics (OCP-* tests only)
-           ↓
-┌──────────────────────┐
-│  Flask + Gunicorn    │  ← Web dashboard (1 worker)
-│  OpenShift Route     │     https://winc-dashboard...
-└──────────────────────┘
+┌────────────────────────────────────────────────────────────┐
+│                    CI Pipeline                              │
+│  Periodic Jobs / Rehearse Jobs / Pull-CI Jobs              │
+└───────────────────────┬────────────────────────────────────┘
+                        │
+        ┌───────────────┴───────────────┐
+        │                               │
+        v                               v
+┌──────────────────┐          ┌──────────────────┐
+│  ReportPortal    │          │   Prow GCS       │
+│  (Production)    │          │   (POC)          │
+└────────┬─────────┘          └────────┬─────────┘
+         │                             │
+         v                             v
+┌────────────────────┐        ┌────────────────────┐
+│  Production        │        │  POC Dashboard     │
+│  Dashboard         │        │  + AI + Jira       │
+└────────┬───────────┘        └────────┬───────────┘
+         │                             │
+         └──────────┬──────────────────┘
+                    │
+                    v
+         ┌────────────────────┐
+         │  SQLite Database   │
+         │  (PersistentVolume)│
+         └────────────────────┘
+                    │
+         ┌──────────┴──────────┐
+         │                     │
+         v                     v
+┌─────────────────┐    ┌─────────────────┐
+│  Vertex AI      │    │  Jira API       │
+│  (Claude 4)     │    │  (Red Hat)      │
+└─────────────────┘    └─────────────────┘
 ```
 
-## Quick Start (Local Development)
+### Tech Stack
 
-### Installation
+- **Backend**: Flask (Python 3.10+)
+- **Database**: SQLite with WAL mode
+- **AI**: Claude 4 via Google Vertex AI
+- **Integration**: Jira REST API v3
+- **Frontend**: HTML/CSS/JavaScript (vanilla)
+- **Deployment**: OpenShift (S2I builds)
+- **Storage**: PersistentVolumeClaim (10Gi)
+
+## Quick Start
+
+### Local Development
 
 ```bash
-cd dashboard
+# Clone repository
+git clone https://github.com/redhat-community-ai-tools/ci-dashboard-tracker.git
+cd ci-dashboard-tracker
+
+# Install dependencies
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
+
+# Set environment variables
+export REPORTPORTAL_URL=https://your-reportportal-instance.com
+export REPORTPORTAL_API_KEY=your-api-key
+export REPORTPORTAL_PROJECT=your-project
+
+# Run locally
+python dashboard.py
 ```
 
-### Configuration
+Open http://localhost:5000
 
-Edit `config.yaml` for your team:
+### OpenShift Deployment
 
-```yaml
-collector:
-  type: "reportportal"
-  reportportal:
-    url: "https://reportportal-openshift.apps.dno.ocp-hub.prod.psi.redhat.com"
-    project: "prow"
-    job_patterns:
-      - "periodic-ci-openshift-openshift-tests-private-release-{version}-*-winc-*"
-      - "periodic-ci-openshift-windows-machine-config-operator-release-{version}-*"
+See [DEPLOYMENT.md](DEPLOYMENT.md) for complete deployment guide.
 
-tracking:
-  versions: ["4.21", "4.22"]
-  platforms: ["aws", "azure", "gcp", "nutanix"]
-  test_suite_filter: "Windows_Containers"  # Filter to specific test suite
-  lookback_days: 30
-  blocklist:
-    - "OCP-60944"  # Removed from suite
-    - "OCP-66352"  # Not relevant
-
-database:
-  path: "/data/dashboard.db"  # Use /data for persistent volume
-```
-
-### Set Environment Variables
+Quick deploy to POC:
 
 ```bash
-# Required for ReportPortal
-export REPORTPORTAL_API_TOKEN="your-token-here"
+oc new-project winc-dashboard-poc
+cd openshift/poc
+oc apply -f .
+oc start-build winc-dashboard-poc
 ```
 
-### Start Dashboard Locally
+## Configuration
 
+### Environment Variables
+
+#### Required (Production)
 ```bash
-# Start web server on http://localhost:8080
-./dashboard.py serve
-
-# Or use Gunicorn (production-like)
-gunicorn -w 1 -b 0.0.0.0:8080 wsgi:app
+REPORTPORTAL_URL=https://reportportal.example.com
+REPORTPORTAL_API_KEY=your-api-key
+REPORTPORTAL_PROJECT=project-name
 ```
 
-Visit http://localhost:8080 and click "Refresh Data" to collect test results.
-
-## OpenShift Deployment
-
-See [openshift/README.md](openshift/README.md) for full deployment guide.
-
-**Quick deploy:**
+#### Required (POC)
 ```bash
-# 1. Login to OpenShift
-oc login https://api.build10.ci.devcluster.openshift.com:6443
-
-# 2. Create project
-oc new-project winc-dashboard
-
-# 3. Create secrets
-oc create secret generic reportportal-token --from-literal=token="YOUR_TOKEN"
-oc create secret generic webhook-secret --from-literal=WebHookSecretKey=$(openssl rand -hex 20)
-
-# 4. Deploy
-oc apply -f openshift/
-oc start-build winc-dashboard
-
-# 5. Get URL
-oc get route winc-dashboard -o jsonpath='{.spec.host}'
+ENABLE_AI_ANALYSIS=true
+JIRA_API_TOKEN=your-jira-token
+JIRA_EMAIL=your-email@redhat.com
 ```
 
-## Dashboard Features
-
-### Main View
-
-- **Summary Cards**: Average pass rate, total tests, trend indicators
-- **Pass Rate Trend**: Line chart showing daily pass rates
-- **Version Comparison**: Compare 4.21 vs 4.22 performance
-- **Test Rankings**: Lowest performing tests with pass rates
-
-### Test Logs
-
-Each failing test shows a **"View logs"** link that:
-- Opens in new tab
-- Displays actual test stdout/stderr (fetched from ReportPortal API)
-- Dark terminal-style formatting for readability
-- Includes test name and description in title
-
-**No more AI summaries!** Logs are the real test output.
-
-### On-Demand Collection
-
-- Click **"Refresh Data"** button to collect latest results
-- Progress shown in blue banner
-- Collection takes 2-3 minutes for 30 days of data
-- Dashboard refreshes automatically when complete
-- No scheduled CronJobs (due to cluster resource constraints)
-
-### Filtering
-
-- **Time Range**: 7/14/30/60/90 days
-- **Version**: All, 4.21, 4.22
-- **Automatic**: Only shows OCP-* tests (infrastructure failures filtered out)
-
-### API Endpoints
-
-REST APIs for custom integrations:
-
-- `GET /api/summary?days=30&version=4.21` - Summary statistics
-- `GET /api/trend?days=30&version=4.21` - Pass rate trend
-- `GET /api/test-pass-rates?days=30&version=4.21` - Per-test pass rates with logs
-- `GET /api/version-comparison?days=30` - Compare versions
-- `POST /api/trigger-collection` - Start data collection
-- `GET /api/collection-status` - Check collection progress
-- `GET /logs?content=<log>&test=<name>` - View logs page
-
-### Test Suite Filtering
-
-**New in April 2026**: The dashboard now supports filtering to specific test suites, making it reusable across teams.
-
-Configure in `config.yaml`:
-
-```yaml
-tracking:
-  test_suite_filter: "Windows_Containers"  # Filter to specific test suite
+#### Optional (AI Features)
+```bash
+ANTHROPIC_VERTEX_PROJECT_ID=gcp-project-id
+ANTHROPIC_VERTEX_REGION=us-east5
+CLAUDE_API_KEY=sk-ant-xxx  # Alternative to Vertex AI
 ```
 
-**How it works:**
-- Checks if the filter string appears in the raw test name/description
-- Applied before any test name processing
-- Empty string or omit to collect all tests
-
-**Examples for different teams:**
-
-| Team                  | Filter Value           | What it collects                              |
-|-----------------------|------------------------|----------------------------------------------|
-| Windows Containers    | `"Windows_Containers"` | Only WINC tests                              |
-| Networking            | `"Networking"`         | Only Networking tests                        |
-| Storage               | `"Storage"`            | Only Storage tests                           |
-| Security & Compliance | `"Security"`           | Security-related tests                       |
-| All teams             | `""`                   | All tests (no filter)                        |
-
-This prevents unrelated test suites (like Security_and_Compliance, File Integrity) from appearing in your dashboard.
-
-## Database Schema
-
-SQLite database (`/data/dashboard.db`) with WAL mode enabled:
-
-- **`job_runs`**: Overall job statistics (36 runs per refresh)
-- **`test_results`**: Individual test results with actual logs (~3000 results)
-  - Includes `error_message` field with full stdout/stderr for failed tests
-  - `log_url` for ReportPortal UI link (backup)
-- **`daily_metrics`**: Pre-aggregated daily stats (not currently used)
-- **`test_metrics`**: Per-test aggregated stats (not currently used)
-
-**Key Query:**
-```sql
-SELECT test_name, pass_rate,
-       (SELECT error_message FROM test_results tr2
-        WHERE tr2.test_name = test_results.test_name
-        AND tr2.status = 'failed'
-        ORDER BY tr2.timestamp DESC LIMIT 1) as sample_error
-FROM test_results
-WHERE test_name LIKE 'OCP-%'
-GROUP BY test_name, version
-ORDER BY pass_rate ASC
+#### Optional (Customization)
+```bash
+JIRA_URL=https://issues.redhat.com
+JIRA_PROJECT=WINC
+JIRA_COMPONENT=component-name
+DASHBOARD_URL=https://your-dashboard-url
+GCS_URL=gcsweb-url  # For POC
 ```
+
+## Usage
+
+### Viewing Test Failures
+
+1. Open dashboard URL
+2. View summary cards (total runs, pass rate, failing tests)
+3. Scroll to "Test Rankings" table
+4. Click platform badge to filter failures
+5. Click test name to see detailed information
+
+### Analyzing Failures (POC)
+
+1. Click test name to open detail modal
+2. View error logs
+3. AI analysis auto-loads if previously run
+4. Review:
+   - Root cause
+   - Affected component
+   - Confidence score
+   - Evidence from logs
+   - Suggested actions
+
+### Creating Jira Tickets (POC)
+
+1. Open test detail modal
+2. Click "Create Jira" button
+3. System searches for existing ticket
+4. If found: Button shows ticket number (clickable)
+5. If not found: Creates new ticket, opens in browser
+6. Ticket reference saved to database
+
+### Manual Classification (POC)
+
+1. Open test detail modal
+2. Select classification from dropdown:
+   - Product Bug
+   - Automation Bug
+   - System Issue
+   - Transient
+   - To Investigate
+3. Click "Save"
+4. Classification persists across sessions
 
 ## Data Collection
 
-### ReportPortal Collector (Current)
+### Production (ReportPortal)
 
-Fetches test results and **actual logs** from ReportPortal API:
+Automatically collects from ReportPortal API:
+- Periodic job results
+- Test pass/fail status
+- Error messages and logs
+- Timestamp and duration
 
-1. **Job Runs**: Query `/api/v1/prow/launch` for periodic WINC jobs
-2. **Test Items**: Query `/api/v1/prow/item` for test steps (OCP-* tests)
-3. **Logs**: For each failed test, fetch from `/api/v1/prow/log?filter.eq.item=<id>`
-   - Combines all log messages (ERROR, INFO levels)
-   - Stores in `error_message` field
-   - Real stdout/stderr, not AI summaries
+### POC (Prow GCS)
 
-**Configuration:**
+Collects from Prow CI via GCS:
+- JUnit XML files from artifacts
+- Supports periodic, rehearse, and pull-CI jobs
+- Pattern-based job filtering
+- Extracts test names, descriptions, errors
+
+Job patterns configured in ConfigMap:
 ```yaml
-collector:
-  type: "reportportal"
-  reportportal:
-    url: "https://reportportal-openshift.apps.dno.ocp-hub.prod.psi.redhat.com"
-    project: "prow"
-    page_size: 150
-    max_pages: 10
-    max_workers: 5
+job_patterns: |
+  periodic-ci-openshift-openshift-tests-private-release-4.22-*-winc-*
+  periodic-ci-openshift-openshift-tests-private-release-4.23-*-winc-*
+  rehearse-*-winc-*
+  pull-ci-*-winc-*
 ```
 
-### Future: Prow GCS Collector
+## API Endpoints
 
-Plan to switch to direct GCS access once authentication is configured:
+### Data Retrieval
 
-```yaml
-collector:
-  type: "prow_gcs"
-  prow_gcs:
-    bucket: "origin-ci-test"
-    job_names:
-      - "periodic-ci-openshift-openshift-tests-private-release-4.21-amd64-aws-winc-e2e"
-    max_builds_per_job: 50
+- `GET /api/summary?days=7&version=4.22` - Overall statistics
+- `GET /api/test-rankings?days=7&version=4.22&limit=100` - Top failing tests
+- `GET /api/platform-comparison?days=7` - Platform metrics
+- `GET /api/test-error-by-platform?test_name=OCP-12345&platform=aws&days=7` - Test details
+- `GET /api/trend?days=7&version=4.22` - Historical trends
+- `GET /api/version-comparison?days=7` - Version comparison
+
+### Actions (POC)
+
+- `POST /api/analyze-failure` - Run AI analysis
+- `POST /api/jira/create` - Create/find Jira ticket
+- `POST /api/save-classification` - Save manual classification
+- `POST /api/get-test-data` - Get test metadata (Jira, classification, AI analysis)
+
+### Management
+
+- `POST /api/trigger-collection` - Trigger data collection
+
+## Database Schema
+
+### Tables
+
+1. **job_runs** - Job execution records
+   - job_name, build_id, status, timestamp
+   - version, platform, test counts, pass_rate
+   - job_url
+
+2. **test_results** - Individual test results
+   - test_name, test_description, status
+   - error_message, timestamp, duration
+   - version, platform, job info
+   - manual_classification
+   - jira_issue_key
+
+3. **ai_analyses** - AI failure analyses
+   - test_name, version, platform
+   - root_cause, component, confidence
+   - failure_type, evidence, suggested_action
+
+4. **daily_metrics** - Pre-aggregated daily stats
+5. **test_metrics** - Per-test aggregated metrics
+
+## Documentation
+
+- [ARCHITECTURE.md](ARCHITECTURE.md) - Detailed system architecture
+- [DEPLOYMENT.md](DEPLOYMENT.md) - Deployment guide with diagrams
+- [STATUS.md](STATUS.md) - Project status and roadmap
+- [QUICKSTART.md](QUICKSTART.md) - Quick start guide
+
+## Development
+
+### Project Structure
+
+```
+ci-dashboard-tracker/
+├── src/
+│   ├── ai/                  # AI failure analysis
+│   │   └── analyzer.py     # Claude/Vertex AI integration
+│   ├── collectors/          # Data collectors
+│   │   ├── reportportal.py # ReportPortal API
+│   │   └── prow_gcs.py     # Prow GCS (JUnit XML)
+│   ├── integrations/        # External integrations
+│   │   └── jira_integration.py
+│   ├── storage/             # Database layer
+│   │   └── database.py     # SQLite with schema
+│   └── web/                 # Web interface
+│       ├── server.py       # Flask app
+│       └── templates/
+│           └── dashboard.html
+├── openshift/               # Deployment configs
+│   ├── buildconfig.yaml
+│   ├── deployment.yaml
+│   └── poc/                # POC-specific configs
+├── docs/                    # Additional documentation
+├── Dockerfile              # Container image definition
+├── requirements.txt        # Python dependencies
+└── clean_test_descriptions.py  # Database maintenance
 ```
 
-## Production Setup
+### Adding Features
 
-### Gunicorn Configuration
+1. Create feature branch
+2. Implement changes in src/
+3. Test locally
+4. Update tests
+5. Update documentation
+6. Submit PR
 
-Running with **1 worker** (not 4) due to in-memory collection status tracking:
+### Running Tests
 
-```dockerfile
-CMD ["python3", "-m", "gunicorn", "-w", "1", "-b", "0.0.0.0:8080",
-     "--access-logfile", "-", "--error-logfile", "-", "wsgi:app"]
+```bash
+# Install test dependencies
+pip install -r requirements-dev.txt
+
+# Run tests
+pytest
+
+# Run with coverage
+pytest --cov=src
 ```
 
-**Why 1 worker?**
-- Global `collection_status` dict not shared across worker processes
-- Multiple workers caused race conditions (status lost between requests)
-- Alternative: Use Redis/database for shared state (future improvement)
+## Maintenance
 
-### SQLite WAL Mode
+### Database Cleanup
 
-Database uses Write-Ahead Logging for better concurrency:
+Remove old data:
 
-```python
-conn = sqlite3.connect(db_path, check_same_thread=False, timeout=30.0)
-conn.execute('PRAGMA journal_mode=WAL')  # Allow concurrent reads during writes
+```bash
+oc exec -it deployment/winc-dashboard-poc -- \
+  python3 clean_test_descriptions.py
 ```
 
-### OpenShift Resources
+### View Logs
 
-- **Memory**: 256Mi request, 512Mi limit
-- **CPU**: 100m request, 500m limit
-- **Storage**: 1Gi PVC for database
-- **Replicas**: 1 (single instance due to SQLite)
+```bash
+# Real-time logs
+oc logs -f deployment/winc-dashboard-poc
+
+# Recent logs
+oc logs deployment/winc-dashboard-poc --tail=100
+
+# Specific errors
+oc logs deployment/winc-dashboard-poc | grep -i error
+```
+
+### Trigger Build
+
+```bash
+oc start-build winc-dashboard-poc
+```
+
+### Database Backup
+
+```bash
+oc exec deployment/winc-dashboard-poc -- \
+  tar czf /tmp/backup.tar.gz /data/dashboard.db
+
+oc cp winc-dashboard-poc/<pod-name>:/tmp/backup.tar.gz ./backup.tar.gz
+```
 
 ## Troubleshooting
 
-### "No data available"
-Click "Refresh Data" button to collect test results. Wait 2-3 minutes.
+### Build Failures
 
-### "Collection failed: attempt to write a readonly database"
-- Check PVC is mounted at `/data`
-- Verify `config.yaml` has `database.path: /data/dashboard.db`
-- Check `wsgi.py` reads path from config (not hardcoded)
+Check build logs:
+```bash
+oc logs build/winc-dashboard-poc-<number>
+```
 
-### "Page keeps reloading"
-Fixed in latest version. Collection now refreshes data in-place, no full page reload.
+Common issues:
+- Git clone failure: Check webhook
+- Dependency errors: Check requirements.txt
+- Docker build: Check Dockerfile
 
-### View logs shows "Bad Request"
-Fixed. Now uses JavaScript `window.open()` instead of URL parameters (avoids 8KB limit).
+### Pod Crashes
 
-### Build cluster scheduling issues
-Dashboard uses minimal resources (256Mi) but build10 cluster is constrained:
-- CronJobs may not schedule (solution: use manual refresh instead)
-- GPU webhook issues can block deployments (wait for cluster team fixes)
+Check pod logs:
+```bash
+oc logs deployment/winc-dashboard-poc --previous
+```
 
-## Why This Tool?
+Common causes:
+- Missing environment variables
+- Database permission issues
+- Port conflicts
 
-**Context:** ReportPortal may be deprecated. This tool provides:
+### Jira Errors
 
-1. **Self-contained**: Fetches and stores actual test logs
-2. **Future-proof**: Can switch data sources (ReportPortal → GCS → Sippy)
-3. **Focused**: Only OCP-* tests, not infrastructure noise
-4. **Actionable**: Direct log access for debugging failures
-5. **Historical**: Build your own test quality database
+Check Jira-specific logs:
+```bash
+oc logs deployment/winc-dashboard-poc | grep -i jira
+```
 
-## Customization for Your Team
+Common issues:
+- Invalid API token
+- Wrong project key
+- Content size limits (fixed in Build 79)
 
-1. Edit `config.yaml`:
-   - Update `job_patterns` for your periodic jobs
-   - Set `versions` and `platforms` to track
-   - Add test IDs to `blocklist` to exclude
+### AI Analysis Failures
 
-2. Deploy to OpenShift:
-   - Follow [openshift/README.md](openshift/README.md)
-   - Use your team's project namespace
-   - Set your ReportPortal token
+Check AI logs:
+```bash
+oc logs deployment/winc-dashboard-poc | grep -i "vertex\|claude"
+```
 
-3. Share dashboard URL with team
+Common issues:
+- Missing Vertex AI credentials
+- Quota exceeded
+- API permissions
+
+## Roadmap
+
+### Planned Features
+
+- Historical trend analysis
+- Slack notifications
+- Email reports
+- Failure correlation analysis
+- Bulk Jira operations
+- PostgreSQL migration
+- API authentication
+- Multi-replica support
+
+### In Progress
+
+- Enhanced metrics visualization
+- Advanced filtering options
+- Export functionality
+- Custom dashboards
+
+## Contributing
+
+1. Fork the repository
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open Pull Request
 
 ## License
 
-Part of the CI Failure Tracker tool suite.
+Internal Red Hat project. Not licensed for external use.
+
+## Support
+
+- GitHub Issues: https://github.com/redhat-community-ai-tools/ci-dashboard-tracker/issues
+- Team: Windows Containers QE
+- Contact: WINC team Slack channel
+
+## Acknowledgments
+
+- OpenShift CI team for Prow infrastructure
+- ReportPortal team for test reporting platform
+- Anthropic for Claude AI capabilities
+- Red Hat Jira team for API access

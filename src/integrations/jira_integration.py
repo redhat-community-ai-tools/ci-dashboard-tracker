@@ -7,6 +7,7 @@ Allows creating Jira issues for failing tests with duplicate detection.
 import os
 import logging
 import requests
+import json
 from typing import Optional, Dict, List
 from dataclasses import dataclass
 import base64
@@ -79,17 +80,20 @@ class JiraIntegration:
             return None
 
         # JQL query to find issues with this test name
-        jql = f'project = {self.config.project_key} AND summary ~ "{test_name}" AND resolution = Unresolved'
+        # Add time restriction to avoid "unbounded query" error
+        jql = f'project = {self.config.project_key} AND summary ~ "{test_name}" AND resolution = Unresolved AND created > -90d'
 
         try:
             logger.info(f"Searching for existing Jira: {jql}")
 
-            # Call Jira search API (v3) - use GET with query params
-            search_url = f"{self.config.url}/rest/api/3/search"
-            response = requests.get(
+            # Call Jira search API (v3) - Use new /search/jql endpoint
+            search_url = f"{self.config.url}/rest/api/3/search/jql"
+            response = requests.post(
                 search_url,
                 headers=self._get_headers(),
-                params={'jql': jql, 'maxResults': 1, 'fields': 'key,summary'}
+                json={'jql': jql, 'maxResults': 1, 'fields': ['key', 'summary']},
+                timeout=30,
+                allow_redirects=False
             )
 
             if response.status_code == 200:
@@ -101,6 +105,29 @@ class JiraIntegration:
                 else:
                     logger.info("No existing Jira found")
                     return None
+            elif response.status_code in (301, 302, 303, 307, 308):
+                # Handle redirect
+                redirect_url = response.headers.get('Location')
+                logger.warning(f"Search redirected to: {redirect_url}")
+                if redirect_url:
+                    response = requests.post(
+                        redirect_url,
+                        headers=self._get_headers(),
+                        json={'jql': jql, 'maxResults': 1, 'fields': ['key', 'summary']},
+                        timeout=30,
+                        allow_redirects=False
+                    )
+                    if response.status_code == 200:
+                        data = response.json()
+                        if data.get('issues'):
+                            issue = data['issues'][0]
+                            logger.info(f"Found existing Jira (after redirect): {issue['key']}")
+                            return {'key': issue['key'], 'summary': issue['fields']['summary']}
+                        else:
+                            logger.info("No existing Jira found (after redirect)")
+                            return None
+                logger.error(f"Jira search failed after redirect: {response.status_code} - {response.text}")
+                return None
             else:
                 logger.error(f"Jira search failed: {response.status_code} - {response.text}")
                 return None
@@ -151,120 +178,37 @@ class JiraIntegration:
         # Create issue summary and description
         summary = f"{test_name}: Test failure on {platform} {version}"
 
-        # Build links section
-        links_content = []
-
-        # Add job URL link if available
-        if job_url:
-            links_content.append({
-                "type": "paragraph",
-                "content": [
-                    {"type": "text", "text": "Failed Job: ", "marks": [{"type": "strong"}]},
-                    {"type": "text", "text": job_url, "marks": [{"type": "link", "attrs": {"href": job_url}}]}
-                ]
-            })
-
-        # Add dashboard link
+        # Dashboard link
         dashboard_url = os.environ.get('DASHBOARD_URL', 'https://winc-dashboard-poc-winc-dashboard-poc.apps.build10.ci.devcluster.openshift.com')
-        links_content.append({
-            "type": "paragraph",
-            "content": [
-                {"type": "text", "text": "CI Dashboard: ", "marks": [{"type": "strong"}]},
-                {"type": "text", "text": dashboard_url, "marks": [{"type": "link", "attrs": {"href": dashboard_url}}]}
-            ]
-        })
 
-        # Atlassian Document Format (ADF) for description
+        # Minimal Atlassian Document Format (ADF) - avoid CONTENT_LIMIT_EXCEEDED
+        # Truncate error message to first 500 chars
+        error_msg_short = (error_message[:500] + "...") if error_message and len(error_message) > 500 else (error_message or "No error message")
+
         description = {
             "version": 1,
             "type": "doc",
             "content": [
                 {
-                    "type": "heading",
-                    "attrs": {"level": 2},
-                    "content": [{"type": "text", "text": "Test Failure Report"}]
-                },
-                {
                     "type": "paragraph",
                     "content": [
-                        {"type": "text", "text": "Test: ", "marks": [{"type": "strong"}]},
-                        {"type": "text", "text": test_name}
+                        {"type": "text", "text": f"Test: {test_name}\n"},
+                        {"type": "text", "text": f"Version: {version} | Platform: {platform}\n"},
+                        {"type": "text", "text": f"Failure Rate: {failure_rate:.1f}% ({failures}/{runs} runs)"}
                     ]
                 },
                 {
                     "type": "paragraph",
                     "content": [
-                        {"type": "text", "text": "Description: ", "marks": [{"type": "strong"}]},
-                        {"type": "text", "text": test_description or "N/A"}
+                        {"type": "text", "text": "Error: ", "marks": [{"type": "strong"}]},
+                        {"type": "text", "text": error_msg_short}
                     ]
                 },
                 {
                     "type": "paragraph",
                     "content": [
-                        {"type": "text", "text": "Version: ", "marks": [{"type": "strong"}]},
-                        {"type": "text", "text": version}
-                    ]
-                },
-                {
-                    "type": "paragraph",
-                    "content": [
-                        {"type": "text", "text": "Platform: ", "marks": [{"type": "strong"}]},
-                        {"type": "text", "text": platform}
-                    ]
-                },
-                {
-                    "type": "heading",
-                    "attrs": {"level": 3},
-                    "content": [{"type": "text", "text": "Failure Statistics"}]
-                },
-                {
-                    "type": "bulletList",
-                    "content": [
-                        {
-                            "type": "listItem",
-                            "content": [{
-                                "type": "paragraph",
-                                "content": [{"type": "text", "text": f"Failure Rate: {failure_rate:.1f}%"}]
-                            }]
-                        },
-                        {
-                            "type": "listItem",
-                            "content": [{
-                                "type": "paragraph",
-                                "content": [{"type": "text", "text": f"Total Runs: {runs}"}]
-                            }]
-                        },
-                        {
-                            "type": "listItem",
-                            "content": [{
-                                "type": "paragraph",
-                                "content": [{"type": "text", "text": f"Failures: {failures}"}]
-                            }]
-                        }
-                    ]
-                },
-                {
-                    "type": "heading",
-                    "attrs": {"level": 3},
-                    "content": [{"type": "text", "text": "Error Message"}]
-                },
-                {
-                    "type": "codeBlock",
-                    "content": [{"type": "text", "text": error_message if error_message else "No error message available"}]
-                },
-                {
-                    "type": "heading",
-                    "attrs": {"level": 3},
-                    "content": [{"type": "text", "text": "Links"}]
-                },
-                *links_content,
-                {
-                    "type": "rule"
-                },
-                {
-                    "type": "paragraph",
-                    "content": [
-                        {"type": "text", "text": "This issue was automatically created by CI Failure Tracker", "marks": [{"type": "em"}]}
+                        {"type": "text", "text": "Dashboard: "},
+                        {"type": "text", "text": dashboard_url, "marks": [{"type": "link", "attrs": {"href": dashboard_url}}]}
                     ]
                 }
             ]
@@ -290,17 +234,41 @@ class JiraIntegration:
 
             # Call Jira create API (v3)
             create_url = f"{self.config.url}/rest/api/3/issue"
+            logger.info(f"POST {create_url}")
+
             response = requests.post(
                 create_url,
                 headers=self._get_headers(),
-                json=issue_data
+                json=issue_data,
+                timeout=30,
+                allow_redirects=False  # Handle redirects manually to preserve POST method
             )
+
+            logger.info(f"Response status: {response.status_code}")
 
             if response.status_code in (200, 201):
                 data = response.json()
                 issue_key = data.get('key')
                 logger.info(f"Created Jira: {issue_key}")
                 return issue_key
+            elif response.status_code in (301, 302, 303, 307, 308):
+                # Handle redirect - get the redirect location and retry
+                redirect_url = response.headers.get('Location')
+                logger.warning(f"Got redirect to: {redirect_url}")
+                if redirect_url:
+                    response = requests.post(
+                        redirect_url,
+                        headers=self._get_headers(),
+                        json=issue_data,
+                        timeout=30
+                    )
+                    if response.status_code in (200, 201):
+                        data = response.json()
+                        issue_key = data.get('key')
+                        logger.info(f"Created Jira (after redirect): {issue_key}")
+                        return issue_key
+                logger.error(f"Redirect failed: {response.status_code} - {response.text}")
+                return None
             else:
                 logger.error(f"Jira creation failed: {response.status_code} - {response.text}")
                 return None
