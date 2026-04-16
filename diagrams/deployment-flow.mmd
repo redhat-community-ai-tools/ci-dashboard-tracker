@@ -5,6 +5,7 @@ sequenceDiagram
     participant IS as ImageStream
     participant Deploy as Deployment
     participant Pod as Pod
+    participant CJ as CronJob
     participant Route as Route
     participant User as End User
 
@@ -23,6 +24,15 @@ sequenceDiagram
     Deploy->>Pod: Mark as ready
     Route->>Pod: Route traffic to new pod
     Deploy->>Pod: Terminate old pod
+
+    Note over CJ: Every 6 hours
+    CJ->>CJ: Trigger scheduled collection
+    CJ->>Pod: Spawn job pod
+    Pod->>Pod: Run data collector
+    Pod->>Pod: Parse JUnit XML from Prow GCS
+    Pod->>Pod: Store results in database
+    Pod->>CJ: Job complete
+
     User->>Route: Access dashboard
     Route->>Pod: Forward HTTPS request
     Pod->>User: Return dashboard HTML

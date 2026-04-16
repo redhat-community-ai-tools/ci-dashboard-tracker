@@ -1,17 +1,24 @@
 graph LR
     subgraph "CI Infrastructure"
         Jobs[CI Jobs<br/>Periodic/Rehearse/Pull-CI]
-        RP[ReportPortal<br/>Test Results API]
-        GCS[Prow GCS<br/>JUnit XML Artifacts]
+        GCS[Prow GCS<br/>JUnit XML Artifacts<br/>gcsweb-qe-private-deck-ci]
     end
 
     subgraph "Dashboard Pod"
-        Collector[Data Collectors<br/>reportportal.py<br/>prow_gcs.py]
+        Collector[Data Collectors<br/>prow_gcs.py<br/>Parses JUnit XML]
         DB[(SQLite Database<br/>PVC: /data/dashboard.db<br/><br/>Tables:<br/>- job_runs<br/>- test_results<br/>- ai_analyses<br/>- daily_metrics)]
         Flask[Flask Web Server<br/>API Endpoints]
 
         Collector --> DB
         DB --> Flask
+    end
+
+    subgraph "Scheduled Collection"
+        CronJob[CronJob<br/>Every 6 hours]
+        JobPod[Job Pod<br/>Runs Collector]
+
+        CronJob -.Spawns.- JobPod
+        JobPod --> Collector
     end
 
     subgraph "User Interactions"
@@ -24,10 +31,8 @@ graph LR
         JIRA[Jira API<br/>Ticket Creation<br/>Duplicate Detection]
     end
 
-    Jobs --> RP
     Jobs --> GCS
-    RP -->|API Calls| Collector
-    GCS -->|HTTP Fetch| Collector
+    GCS -->|HTTP Fetch<br/>JUnit XML| Collector
 
     Browser -->|HTTPS| Flask
     Flask -->|JSON/HTML| Browser
@@ -46,3 +51,5 @@ graph LR
     style AI fill:#ffccff
     style JIRA fill:#ffccff
     style Jobs fill:#ccffcc
+    style CronJob fill:#ffffcc
+    style JobPod fill:#ffffcc

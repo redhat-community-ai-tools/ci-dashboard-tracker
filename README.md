@@ -2,10 +2,11 @@
 
 Comprehensive web dashboard for monitoring, analyzing, and tracking Windows Containers CI test failures in OpenShift. Features automated AI analysis, Jira integration, and detailed failure metrics.
 
-## Live Dashboards
+## Live Dashboard
 
-- **Production**: https://winc-dashboard-winc-dashboard.apps.build10.ci.devcluster.openshift.com/
-- **POC (with AI)**: https://winc-dashboard-poc-winc-dashboard-poc.apps.build10.ci.devcluster.openshift.com/
+https://winc-dashboard-poc-winc-dashboard-poc.apps.build10.ci.devcluster.openshift.com/
+
+Note: Namespace currently named `winc-dashboard-poc`, will be renamed to `winc-dashboard` during production migration.
 
 ## Key Features
 
@@ -23,7 +24,7 @@ Comprehensive web dashboard for monitoring, analyzing, and tracking Windows Cont
 - Timestamp and job information for each failure
 - Direct links to CI system (Prow/ReportPortal)
 
-### AI-Powered Failure Analysis (POC)
+### AI-Powered Failure Analysis
 - Automated root cause analysis using Claude 4 (Vertex AI)
 - Identifies affected components
 - Provides confidence scores
@@ -37,7 +38,7 @@ Comprehensive web dashboard for monitoring, analyzing, and tracking Windows Cont
 - Suggested remediation actions
 - Auto-loads previous analysis from database
 
-### Jira Integration (POC)
+### Jira Integration
 - One-click Jira ticket creation
 - Automatic duplicate detection
 - Minimal ticket description to avoid API limits
@@ -45,6 +46,12 @@ Comprehensive web dashboard for monitoring, analyzing, and tracking Windows Cont
 - Persistent ticket references
 - Click ticket number to view in Jira
 - No popup for existing tickets
+
+### Scheduled Data Collection
+- CronJob runs every 6 hours
+- Automatic collection from Prow GCS
+- Parses JUnit XML test results
+- Updates database with latest failures
 
 ### Manual Classification
 - User-defined test failure classification
@@ -67,40 +74,36 @@ Comprehensive web dashboard for monitoring, analyzing, and tracking Windows Cont
 ### System Components
 
 ```
-┌────────────────────────────────────────────────────────────┐
-│                    CI Pipeline                              │
-│  Periodic Jobs / Rehearse Jobs / Pull-CI Jobs              │
-└───────────────────────┬────────────────────────────────────┘
-                        │
-        ┌───────────────┴───────────────┐
-        │                               │
-        v                               v
-┌──────────────────┐          ┌──────────────────┐
-│  ReportPortal    │          │   Prow GCS       │
-│  (Production)    │          │   (POC)          │
-└────────┬─────────┘          └────────┬─────────┘
-         │                             │
-         v                             v
-┌────────────────────┐        ┌────────────────────┐
-│  Production        │        │  POC Dashboard     │
-│  Dashboard         │        │  + AI + Jira       │
-└────────┬───────────┘        └────────┬───────────┘
-         │                             │
-         └──────────┬──────────────────┘
-                    │
-                    v
-         ┌────────────────────┐
-         │  SQLite Database   │
-         │  (PersistentVolume)│
-         └────────────────────┘
-                    │
-         ┌──────────┴──────────┐
-         │                     │
-         v                     v
-┌─────────────────┐    ┌─────────────────┐
-│  Vertex AI      │    │  Jira API       │
-│  (Claude 4)     │    │  (Red Hat)      │
-└─────────────────┘    └─────────────────┘
+┌────────────────────────────────────────┐
+│           CI Pipeline                   │
+│  Periodic / Rehearse / Pull-CI Jobs    │
+└───────────────┬────────────────────────┘
+                │
+                v
+       ┌──────────────────┐
+       │   Prow GCS       │
+       │  (JUnit XML)     │
+       └────────┬─────────┘
+                │
+                v
+       ┌──────────────────┐
+       │   Dashboard      │
+       │  AI + Jira       │
+       └────────┬─────────┘
+                │
+                v
+       ┌────────────────────┐
+       │  SQLite Database   │
+       │ (PersistentVolume) │
+       └────────┬───────────┘
+                │
+       ┌────────┴────────┐
+       │                 │
+       v                 v
+┌─────────────┐   ┌─────────────┐
+│  Vertex AI  │   │  Jira API   │
+│ (Claude 4)  │   │ (Red Hat)   │
+└─────────────┘   └─────────────┘
 ```
 
 ### Tech Stack
@@ -155,34 +158,23 @@ oc start-build winc-dashboard-poc
 
 ### Environment Variables
 
-#### Required (Production)
-```bash
-REPORTPORTAL_URL=https://reportportal.example.com
-REPORTPORTAL_API_KEY=your-api-key
-REPORTPORTAL_PROJECT=project-name
-```
-
-#### Required (POC)
+#### Required
 ```bash
 ENABLE_AI_ANALYSIS=true
 JIRA_API_TOKEN=your-jira-token
 JIRA_EMAIL=your-email@redhat.com
-```
-
-#### Optional (AI Features)
-```bash
 ANTHROPIC_VERTEX_PROJECT_ID=gcp-project-id
 ANTHROPIC_VERTEX_REGION=us-east5
-CLAUDE_API_KEY=sk-ant-xxx  # Alternative to Vertex AI
 ```
 
-#### Optional (Customization)
+#### Optional
 ```bash
+CLAUDE_API_KEY=sk-ant-xxx  # Alternative to Vertex AI
 JIRA_URL=https://issues.redhat.com
 JIRA_PROJECT=WINC
 JIRA_COMPONENT=component-name
 DASHBOARD_URL=https://your-dashboard-url
-GCS_URL=gcsweb-url  # For POC
+GCS_URL=gcsweb-qe-private-deck-ci.apps.ci.l2s4.p1.openshiftapps.com
 ```
 
 ## Usage
@@ -230,23 +222,25 @@ GCS_URL=gcsweb-url  # For POC
 
 ## Data Collection
 
-### Production (ReportPortal)
+### Automated Collection (CronJob)
 
-Automatically collects from ReportPortal API:
-- Periodic job results
-- Test pass/fail status
-- Error messages and logs
-- Timestamp and duration
-
-### POC (Prow GCS)
-
-Collects from Prow CI via GCS:
-- JUnit XML files from artifacts
+Runs every 6 hours to collect test results from Prow GCS:
+- JUnit XML files from CI artifacts
 - Supports periodic, rehearse, and pull-CI jobs
 - Pattern-based job filtering
 - Extracts test names, descriptions, errors
+- Stores in SQLite database on PersistentVolume
 
-Job patterns configured in ConfigMap:
+### Manual Collection
+
+Trigger on-demand collection via API:
+```bash
+curl -X POST https://dashboard-url/api/trigger-collection
+```
+
+### Job Patterns
+
+Configured in ConfigMap (dashboard-config):
 ```yaml
 job_patterns: |
   periodic-ci-openshift-openshift-tests-private-release-4.22-*-winc-*

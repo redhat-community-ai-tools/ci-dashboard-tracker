@@ -10,13 +10,13 @@ graph TB
 
     subgraph "API Layer"
         Flask[Flask Server<br/>server.py]
-        Routes[API Routes<br/>/api/summary<br/>/api/test-rankings<br/>/api/jira/create<br/>/api/analyze-failure<br/>/api/save-classification]
+        Routes[API Routes<br/>/api/summary<br/>/api/test-rankings<br/>/api/jira/create<br/>/api/analyze-failure<br/>/api/save-classification<br/>/api/get-test-data]
 
         Flask --> Routes
     end
 
     subgraph "Business Logic"
-        Collectors[Data Collectors<br/>reportportal.py<br/>prow_gcs.py]
+        Collectors[Data Collectors<br/>prow_gcs.py]
         AIAnalyzer[AI Analyzer<br/>analyzer.py<br/>Vertex AI Integration]
         JiraIntegration[Jira Integration<br/>jira_integration.py<br/>Duplicate Detection]
         Metrics[Metrics Calculator<br/>calculator.py]
@@ -35,10 +35,9 @@ graph TB
     end
 
     subgraph "External APIs"
-        RP[ReportPortal API]
-        GCS[Prow GCS]
-        Vertex[Vertex AI]
-        Jira[Jira API]
+        GCS[Prow GCS<br/>JUnit XML]
+        Vertex[Vertex AI<br/>Claude Sonnet 4]
+        Jira[Jira API<br/>REST API v3]
     end
 
     JS -->|HTTP Requests| Routes
@@ -47,7 +46,6 @@ graph TB
     JiraIntegration --> DB
     Metrics --> DB
 
-    Collectors --> RP
     Collectors --> GCS
     AIAnalyzer --> Vertex
     JiraIntegration --> Jira

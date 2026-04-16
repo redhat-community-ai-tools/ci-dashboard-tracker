@@ -7,12 +7,13 @@ This directory contains Mermaid diagram definitions that can be rendered into hi
 ### 1. OpenShift Architecture (openshift-architecture.mmd)
 **Purpose**: Complete OpenShift deployment showing all components
 **Shows**:
-- Two namespaces (Production and POC)
+- Single namespace (winc-dashboard-poc)
 - Secrets, ConfigMaps
 - BuildConfigs, ImageStreams
 - Deployments, Pods, Services, Routes
+- CronJob for scheduled data collection
 - PersistentVolumeClaims
-- External integrations (GitHub, ReportPortal, Prow GCS, Vertex AI, Jira)
+- External integrations (GitHub, Prow GCS, Vertex AI, Jira)
 - CI pipeline flow
 
 **Best for**: Overview slides, architecture discussions

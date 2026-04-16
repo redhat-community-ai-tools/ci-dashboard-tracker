@@ -1,78 +1,65 @@
 graph TB
     subgraph "OpenShift Cluster (build10.ci.devcluster.openshift.com)"
-        subgraph "Namespace: winc-dashboard (Production)"
-            ProdSecrets[("Secrets<br/>reportportal-secret<br/>dashboard-secrets")]
-            ProdBuild[BuildConfig<br/>winc-dashboard<br/>Source: Git<br/>Strategy: Docker]
-            ProdImage[ImageStream<br/>winc-dashboard:latest]
-            ProdDeploy[Deployment<br/>Replicas: 1<br/>Container: dashboard<br/>Port: 5000]
-            ProdPod[Pod<br/>Status: Running]
-            ProdService[Service<br/>ClusterIP<br/>Port: 5000]
-            ProdRoute[Route<br/>TLS: Edge<br/>Host: winc-dashboard-<br/>winc-dashboard.apps...]
-            ProdPVC[PVC<br/>dashboard-data<br/>10Gi<br/>/data/dashboard.db]
+        subgraph "Namespace: winc-dashboard-poc"
+            Secrets[("Secrets<br/>dashboard-secrets<br/>JIRA_API_TOKEN<br/>JIRA_EMAIL<br/>ANTHROPIC_VERTEX_PROJECT_ID<br/>ANTHROPIC_VERTEX_REGION")]
+            Config[ConfigMap<br/>dashboard-config<br/>job_patterns]
 
-            ProdBuild --> ProdImage
-            ProdImage --> ProdDeploy
-            ProdDeploy --> ProdPod
-            ProdPod --> ProdService
-            ProdService --> ProdRoute
-            ProdPod -.Mount.- ProdPVC
-            ProdSecrets -.Env.- ProdPod
-        end
+            Build[BuildConfig<br/>winc-dashboard-poc<br/>Source: Git<br/>Strategy: Docker]
+            Image[ImageStream<br/>winc-dashboard-poc<br/>Latest: Build 85]
 
-        subgraph "Namespace: winc-dashboard-poc (POC + AI + Jira)"
-            POCSecrets[("Secrets<br/>dashboard-secrets<br/>JIRA_API_TOKEN<br/>ANTHROPIC_VERTEX")]
-            POCConfig[ConfigMap<br/>dashboard-config<br/>job_patterns]
-            POCBuild[BuildConfig<br/>winc-dashboard-poc<br/>Source: Git<br/>Strategy: Docker]
-            POCImage[ImageStream<br/>winc-dashboard-poc<br/>Build: 85]
-            POCDeploy[Deployment<br/>Replicas: 1<br/>Container: dashboard<br/>Port: 5000]
-            POCPod[Pod<br/>Status: Running<br/>AI + Jira Enabled]
-            POCService[Service<br/>ClusterIP<br/>Port: 5000]
-            POCRoute[Route<br/>TLS: Edge<br/>Host: winc-dashboard-poc...]
-            POCPVC[PVC<br/>dashboard-data<br/>10Gi<br/>/data/dashboard.db]
+            Deploy[Deployment<br/>winc-dashboard-poc<br/>Replicas: 1<br/>Container: dashboard<br/>Port: 5000]
+            Pod[Pod<br/>dashboard<br/>Status: Running<br/>AI + Jira Enabled]
 
-            POCBuild --> POCImage
-            POCImage --> POCDeploy
-            POCDeploy --> POCPod
-            POCPod --> POCService
-            POCService --> POCRoute
-            POCPod -.Mount.- POCPVC
-            POCSecrets -.Env.- POCPod
-            POCConfig -.Config.- POCPod
+            CronJob[CronJob<br/>dashboard-collector<br/>Schedule: Every 6 hours<br/>Triggers data collection]
+            CronPod[Job Pods<br/>Collect from Prow GCS<br/>Parse JUnit XML<br/>Store in database]
+
+            Service[Service<br/>winc-dashboard-poc<br/>ClusterIP<br/>Port: 5000]
+            Route[Route<br/>TLS: Edge<br/>Host: winc-dashboard-poc-<br/>winc-dashboard-poc...]
+
+            PVC[PVC<br/>dashboard-data<br/>10Gi RWO<br/>/data/dashboard.db]
+
+            Build --> Image
+            Image --> Deploy
+            Deploy --> Pod
+            Pod --> Service
+            Service --> Route
+            Pod -.Mount.- PVC
+            CronJob -.Creates.- CronPod
+            CronPod -.Mount.- PVC
+            Secrets -.Env.- Pod
+            Secrets -.Env.- CronPod
+            Config -.Config.- Pod
+            Config -.Config.- CronPod
         end
     end
 
     subgraph "External Services"
-        GitHub[GitHub Repository<br/>ci-failure-tracker<br/>Branch: master]
-        ReportPortal[ReportPortal API<br/>Test Results]
-        ProwGCS[Prow GCS<br/>JUnit XML Files<br/>gcsweb-qe-private-deck]
+        GitHub[GitHub Repository<br/>ci-dashboard-tracker<br/>Branch: master]
+        ProwGCS[Prow GCS<br/>JUnit XML Files<br/>gcsweb-qe-private-deck-ci]
         VertexAI[Google Vertex AI<br/>Claude Sonnet 4<br/>Region: us-east5]
         Jira[Jira API<br/>issues.redhat.com<br/>Project: WINC]
     end
 
     subgraph "CI Pipeline"
         CIJobs[CI Jobs<br/>Periodic<br/>Rehearse<br/>Pull-CI]
-        CIJobs --> ReportPortal
         CIJobs --> ProwGCS
     end
 
-    GitHub -->|Webhook<br/>Push Event| ProdBuild
-    GitHub -->|Webhook<br/>Push Event| POCBuild
+    GitHub -->|Webhook<br/>Push Event| Build
 
-    ReportPortal -->|Collect Data| ProdPod
-    ProwGCS -->|Collect Data| POCPod
+    ProwGCS -->|Scheduled Collection| CronPod
+    ProwGCS -->|Manual Collection| Pod
 
-    POCPod -->|AI Analysis| VertexAI
-    POCPod -->|Create Tickets| Jira
+    Pod -->|AI Analysis| VertexAI
+    Pod -->|Create Tickets| Jira
 
-    ProdRoute -->|HTTPS| Users[Users/Browsers]
-    POCRoute -->|HTTPS| Users
+    Route -->|HTTPS| Users[Users/Browsers]
 
-    style ProdSecrets fill:#ff9999
-    style POCSecrets fill:#ff9999
-    style ProdPVC fill:#99ccff
-    style POCPVC fill:#99ccff
+    style Secrets fill:#ff9999
+    style PVC fill:#99ccff
     style GitHub fill:#ffcc99
-    style ReportPortal fill:#ccffcc
     style ProwGCS fill:#ccffcc
     style VertexAI fill:#ffccff
     style Jira fill:#ffccff
+    style CronJob fill:#ffffcc
+    style CronPod fill:#ffffcc

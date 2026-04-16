@@ -35,24 +35,17 @@ The Flask web application serves as the main user interface and API backend.
 
 Collectors retrieve test results from various sources.
 
-#### ReportPortal Collector (`reportportal.py`)
-- Primary collector for production dashboard
-- Connects to ReportPortal API
-- Retrieves test results, job runs, and failure details
-- Cleans test descriptions (removes prefixes, tags)
-
 #### Prow GCS Collector (`prow_gcs.py`)
-- Used by POC dashboard
+- Primary data collector
 - Reads JUnit XML files from Google Cloud Storage
 - Parses test results from Prow CI jobs
 - Supports periodic, rehearse, and pull-CI job types
 - Extracts GCS paths from job URLs to handle pr-logs structure
-
-**Common Functionality**:
 - Pattern-based job filtering
 - Test name and description extraction
 - Platform and version detection
 - Error message parsing
+- Cleans test descriptions (removes prefixes, tags)
 
 ### 3. Database Layer
 
@@ -249,50 +242,31 @@ User clicks "Create Jira"
 - `JIRA_COMPONENT` - Jira component name
 - `DASHBOARD_URL` - Dashboard URL for Jira ticket links
 
-### ReportPortal (Production)
-
-- `REPORTPORTAL_URL`
-- `REPORTPORTAL_API_KEY`
-- `REPORTPORTAL_PROJECT`
-
-### Prow GCS (POC)
+### Prow GCS
 
 - `GCS_URL` - GCS web URL (default: gcsweb-qe-private-deck-ci.apps.ci.l2s4.p1.openshiftapps.com)
 
 ## Deployment Architecture
 
-### Production Deployment
-
-**Namespace**: `winc-dashboard`
-
-**Components**:
-- Deployment: winc-dashboard (1 replica)
-- Service: winc-dashboard (ClusterIP)
-- Route: winc-dashboard-winc-dashboard.apps.build10.ci.devcluster.openshift.com
-- PVC: dashboard-data (10Gi) - Persistent SQLite database
-- BuildConfig: winc-dashboard (Source-to-Image)
-- ImageStream: winc-dashboard
-
-**Data Source**: ReportPortal API
-
-### POC Deployment
-
-**Namespace**: `winc-dashboard-poc`
+**Namespace**: `winc-dashboard-poc` (will be renamed to `winc-dashboard`)
 
 **Components**:
 - Deployment: winc-dashboard-poc (1 replica)
 - Service: winc-dashboard-poc (ClusterIP)
 - Route: winc-dashboard-poc-winc-dashboard-poc.apps.build10.ci.devcluster.openshift.com
-- PVC: dashboard-data (10Gi)
-- BuildConfig: winc-dashboard-poc
+- PVC: dashboard-data (10Gi) - Persistent SQLite database
+- BuildConfig: winc-dashboard-poc (Docker build)
 - ImageStream: winc-dashboard-poc
+- CronJob: dashboard-collector (runs every 6 hours)
 
 **Data Source**: Prow GCS (JUnit XML files)
 
-**Additional Features**:
-- AI failure analysis (Vertex AI)
-- Jira integration
+**Features**:
+- Automated data collection (CronJob)
+- AI failure analysis (Vertex AI/Claude 4)
+- Jira integration with duplicate detection
 - Manual test classification
+- Persistent data storage (Jira keys, classifications, AI analyses)
 
 ## Database Persistence
 
