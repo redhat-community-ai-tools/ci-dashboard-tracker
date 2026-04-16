@@ -1,0 +1,28 @@
+sequenceDiagram
+    participant Dev as Developer
+    participant GH as GitHub
+    participant BC as BuildConfig
+    participant IS as ImageStream
+    participant Deploy as Deployment
+    participant Pod as Pod
+    participant Route as Route
+    participant User as End User
+
+    Dev->>GH: Push code to master
+    GH->>BC: Webhook triggers build
+    BC->>BC: Clone repository
+    BC->>BC: Build Docker image
+    BC->>IS: Push image (Build 85)
+    IS->>Deploy: ImageChange trigger
+    Deploy->>Deploy: Start rolling update
+    Deploy->>Pod: Create new pod
+    Pod->>Pod: Container starting
+    Pod->>Pod: Load secrets & mount PVC
+    Pod->>Pod: Start Flask app (port 5000)
+    Deploy->>Pod: Health check passes
+    Deploy->>Pod: Mark as ready
+    Route->>Pod: Route traffic to new pod
+    Deploy->>Pod: Terminate old pod
+    User->>Route: Access dashboard
+    Route->>Pod: Forward HTTPS request
+    Pod->>User: Return dashboard HTML

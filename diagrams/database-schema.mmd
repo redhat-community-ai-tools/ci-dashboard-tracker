@@ -1,0 +1,93 @@
+erDiagram
+    job_runs ||--o{ test_results : contains
+    test_results ||--o| ai_analyses : analyzed_by
+    test_results }o--|| daily_metrics : aggregates_to
+    test_results }o--|| test_metrics : aggregates_to
+
+    job_runs {
+        int id PK
+        text job_name
+        text build_id
+        text status
+        datetime timestamp
+        real duration_seconds
+        text version
+        text platform
+        int total_tests
+        int passed_tests
+        int failed_tests
+        int skipped_tests
+        real pass_rate
+        text job_url
+        datetime created_at
+    }
+
+    test_results {
+        int id PK
+        text test_name
+        text test_description
+        text status
+        datetime timestamp
+        real duration_seconds
+        text error_message
+        text job_name FK
+        text build_id FK
+        text version
+        text platform
+        text job_url
+        text log_url
+        text manual_classification
+        text classified_by
+        datetime classification_timestamp
+        text jira_issue_key
+        datetime created_at
+    }
+
+    ai_analyses {
+        int id PK
+        text test_name FK
+        text version FK
+        text platform FK
+        datetime analysis_date
+        text root_cause
+        text component
+        int confidence
+        text failure_type
+        int platform_specific
+        text affected_platforms
+        text evidence
+        text suggested_action
+        text issue_title
+        text issue_description
+        text analysis_mode
+        real cost
+        datetime created_at
+    }
+
+    daily_metrics {
+        int id PK
+        date date
+        text version
+        text platform
+        int total_runs
+        int passed_runs
+        int failed_runs
+        int total_tests
+        int passed_tests
+        int failed_tests
+        real overall_pass_rate
+        datetime created_at
+    }
+
+    test_metrics {
+        int id PK
+        text test_name
+        date date
+        text version
+        text platform
+        int total_runs
+        int passed_runs
+        int failed_runs
+        real pass_rate
+        datetime created_at
+    }

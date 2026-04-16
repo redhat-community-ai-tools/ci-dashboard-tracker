@@ -1,0 +1,58 @@
+graph TB
+    subgraph "Frontend Layer"
+        HTML[dashboard.html<br/>Single Page Dashboard]
+        JS[JavaScript<br/>Fetch API<br/>DOM Manipulation]
+        CSS[Inline CSS<br/>Responsive Design]
+
+        HTML --> JS
+        HTML --> CSS
+    end
+
+    subgraph "API Layer"
+        Flask[Flask Server<br/>server.py]
+        Routes[API Routes<br/>/api/summary<br/>/api/test-rankings<br/>/api/jira/create<br/>/api/analyze-failure<br/>/api/save-classification]
+
+        Flask --> Routes
+    end
+
+    subgraph "Business Logic"
+        Collectors[Data Collectors<br/>reportportal.py<br/>prow_gcs.py]
+        AIAnalyzer[AI Analyzer<br/>analyzer.py<br/>Vertex AI Integration]
+        JiraIntegration[Jira Integration<br/>jira_integration.py<br/>Duplicate Detection]
+        Metrics[Metrics Calculator<br/>calculator.py]
+
+        Routes --> Collectors
+        Routes --> AIAnalyzer
+        Routes --> JiraIntegration
+        Routes --> Metrics
+    end
+
+    subgraph "Data Layer"
+        DB[Database Manager<br/>database.py]
+        SQLite[(SQLite<br/>dashboard.db<br/><br/>Schema:<br/>job_runs<br/>test_results<br/>ai_analyses<br/>daily_metrics<br/>test_metrics)]
+
+        DB --> SQLite
+    end
+
+    subgraph "External APIs"
+        RP[ReportPortal API]
+        GCS[Prow GCS]
+        Vertex[Vertex AI]
+        Jira[Jira API]
+    end
+
+    JS -->|HTTP Requests| Routes
+    Collectors --> DB
+    AIAnalyzer --> DB
+    JiraIntegration --> DB
+    Metrics --> DB
+
+    Collectors --> RP
+    Collectors --> GCS
+    AIAnalyzer --> Vertex
+    JiraIntegration --> Jira
+
+    style SQLite fill:#99ccff
+    style DB fill:#ccccff
+    style Flask fill:#ffcc99
+    style HTML fill:#ccffcc
