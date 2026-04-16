@@ -1,0 +1,41 @@
+graph TB
+    Start[User Opens Test Detail] --> Check{AI Analysis<br/>in Database?}
+
+    Check -->|Yes| Display[Display Cached Analysis<br/>Root Cause<br/>Component<br/>Confidence<br/>Evidence<br/>Suggested Action]
+
+    Check -->|No| CallAPI[Call /api/analyze-failure]
+
+    CallAPI --> PrepareData[Prepare Data:<br/>- Test Name<br/>- Error Message<br/>- Build Logs last 3000 chars<br/>- Platform<br/>- Version]
+
+    PrepareData --> VertexAI[Send to Vertex AI<br/>Claude Sonnet 4<br/>us-east5]
+
+    VertexAI --> Analyze[Claude Analyzes Failure]
+
+    Analyze --> Classify{Classify<br/>Failure Type}
+
+    Classify --> ProductBug[Product Bug]
+    Classify --> AutoBug[Automation Bug]
+    Classify --> SysIssue[System Issue]
+    Classify --> Transient[Transient]
+    Classify --> Investigate[To Investigate]
+
+    ProductBug --> Results[Generate Analysis:<br/>Root Cause<br/>Component<br/>Confidence 0-100%<br/>Evidence from logs<br/>Suggested Action]
+    AutoBug --> Results
+    SysIssue --> Results
+    Transient --> Results
+    Investigate --> Results
+
+    Results --> SaveDB[(Save to Database<br/>ai_analyses table)]
+
+    SaveDB --> Display
+
+    Display --> End[User Reviews Analysis]
+
+    Note1[Cost: ~$0.024 per analysis]
+    Note2[Results cached permanently]
+
+    style Check fill:#ffffcc
+    style VertexAI fill:#ffccff
+    style SaveDB fill:#99ccff
+    style Display fill:#ccffcc
+    style Classify fill:#ffffcc

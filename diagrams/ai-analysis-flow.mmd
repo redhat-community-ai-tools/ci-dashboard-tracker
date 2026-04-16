@@ -1,0 +1,31 @@
+sequenceDiagram
+    participant User as User
+    participant Browser as Web Browser
+    participant Flask as Flask API
+    participant DB as Database
+    participant Vertex as Vertex AI<br/>(Claude Sonnet 4)
+
+    User->>Browser: Opens test detail modal
+    Browser->>Flask: GET /api/get-test-data
+    Flask->>DB: Check for existing AI analysis
+    DB-->>Flask: Return analysis (if exists)
+    Flask-->>Browser: Return test data + AI analysis
+    Browser->>User: Display AI analysis<br/>(auto-loaded from database)
+
+    Note over User,Vertex: If no analysis exists, or user wants fresh analysis:
+
+    User->>Browser: (Analysis auto-loads from DB)
+    Note over Browser: AI analysis appears<br/>without button click
+
+    alt Fresh Analysis Needed
+        Browser->>Flask: POST /api/analyze-failure<br/>{test_name, error_message, logs}
+        Flask->>Vertex: Analyze failure<br/>Send: test name, error, logs (3000 chars)
+        Note over Vertex: Claude analyzes:<br/>- Root cause<br/>- Component<br/>- Failure type<br/>- Confidence score<br/>- Evidence<br/>- Suggested action
+        Vertex-->>Flask: Analysis result JSON
+        Flask->>DB: Save analysis<br/>(root_cause, component,<br/>confidence, evidence, etc)
+        DB-->>Flask: Saved
+        Flask-->>Browser: Return analysis
+        Browser->>User: Display results:<br/>Root Cause<br/>Component<br/>Confidence: 95%<br/>Evidence<br/>Suggested Action
+    end
+
+    Note over User,Vertex: Cost: ~$0.024 per analysis<br/>Results cached in database

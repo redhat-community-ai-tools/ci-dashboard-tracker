@@ -1,0 +1,39 @@
+graph LR
+    subgraph "User Interface"
+        Modal[Test Detail Modal<br/>Shows error logs]
+        Display[AI Analysis Display<br/>Root Cause<br/>Component<br/>Confidence: 95%<br/>Evidence<br/>Suggested Action]
+    end
+
+    subgraph "Backend"
+        API[Flask API<br/>/api/analyze-failure]
+        Analyzer[AI Analyzer<br/>analyzer.py]
+    end
+
+    subgraph "Data Storage"
+        DB[(Database<br/>ai_analyses table<br/>Cached results)]
+    end
+
+    subgraph "External AI Service"
+        Vertex[Google Vertex AI<br/>Claude Sonnet 4<br/>Model: claude-sonnet-4<br/>Region: us-east5]
+    end
+
+    Modal -->|Auto-load on open| DB
+    DB -->|Existing analysis| Display
+
+    Modal -->|Fresh analysis needed| API
+    API --> Analyzer
+    Analyzer -->|Send:<br/>Test name<br/>Error message<br/>Logs 3000 chars<br/>Platform<br/>Version| Vertex
+
+    Vertex -->|Return:<br/>Root cause<br/>Component<br/>Confidence<br/>Failure type<br/>Evidence<br/>Suggested action| Analyzer
+
+    Analyzer --> DB
+    DB --> Display
+    Display --> Modal
+
+    Note1[Auto-loads from cache<br/>No button needed]
+    Note2[Cost: $0.024 per analysis<br/>Cached permanently]
+
+    style DB fill:#99ccff
+    style Vertex fill:#ffccff
+    style Display fill:#ccffcc
+    style Modal fill:#ffcc99
