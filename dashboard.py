@@ -70,7 +70,7 @@ def load_config(config_path: str = "config.yaml") -> dict:
 
 def get_collector(config: dict):
     """Create data collector based on configuration"""
-    collector_type = config['collector']['type']
+    collector_type = config.get('collector', {}).get('type', 'gcsweb')  # Default to gcsweb (no auth required)
 
     # Add test_suite_filter from tracking config to collector config
     test_suite_filter = config.get('tracking', {}).get('test_suite_filter', '')
