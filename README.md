@@ -47,12 +47,16 @@ pip install -r requirements.txt
 3. Configure your jobs in `config.yaml`:
 ```yaml
 collector:
-  type: "gcsweb"  # Use gcsweb collector (no authentication required)
+  type: "gcsweb"  # No authentication required
   
   gcsweb:
+    url: "https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com"
+    bucket: "test-platform-results"
     job_names:
-      - "your-periodic-job-name-here"
-      - "another-job-name"
+      # Replace COMPONENT with your component name (networking, storage, etc.)
+      # Replace 4.XX with your OpenShift version (4.17, 4.18, etc.)
+      - "periodic-ci-openshift-COMPONENT-release-4.XX-amd64-nightly-aws-e2e"
+      - "periodic-ci-openshift-COMPONENT-release-4.XX-amd64-nightly-azure-e2e"
 ```
 
 4. Collect test data:
