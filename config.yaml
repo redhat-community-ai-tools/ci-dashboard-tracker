@@ -1,15 +1,15 @@
-# CI Test Pass Rate Dashboard Configuration
+# CI Test Dashboard Configuration
 #
 # ============================================================================
 # CUSTOMIZE THIS FILE FOR YOUR TEAM
 # ============================================================================
 #
-# This is currently configured for the Windows Containers (WinC) QE team.
+# This example is configured for monitoring OpenShift CI periodic jobs.
 # To use for your team:
-# 1. Update job_patterns below to match your periodic CI jobs
+# 1. Update job_names below to match your periodic CI jobs
 # 2. Adjust versions and platforms in the tracking section
 # 3. Update blocklist with test IDs to exclude
-# 4. Deploy to OpenShift or run locally
+# 4. Deploy locally or to OpenShift
 #
 # Example job patterns for different teams:
 #   - Networking: "periodic-ci-*-network-*", "periodic-ci-*-ovn-*"
@@ -23,158 +23,42 @@ collector:
   # Recommended: gcsweb (no authentication required)
   type: "gcsweb"
 
-  # ReportPortal configuration
-  reportportal:
-    url: "https://reportportal-openshift.apps.dno.ocp-hub.prod.psi.redhat.com"
-    project: "prow"
-    # API token from environment variable: REPORTPORTAL_API_TOKEN
-
-    # ========================================================================
-    # CUSTOMIZE: Job name patterns to monitor for your team
-    # {version} will be replaced with each version from tracking.versions
-    #
-    # Job types:
-    # - periodic-ci-* = Periodic/nightly jobs
-    # - pull-ci-* = Presubmit jobs (run on PRs)
-    # - branch-ci-* = Postsubmit jobs (run after merge)
-    # ========================================================================
-    job_patterns:
-      # Periodic (nightly) jobs
-      - "periodic-ci-openshift-openshift-tests-private-release-{version}-*-winc-*"
-      - "periodic-ci-openshift-windows-machine-config-operator-release-{version}-*"
-
-      # Presubmit (PR) jobs - for debugging PR failures
-      - "pull-ci-openshift-openshift-tests-private-release-{version}-*-winc-*"
-      - "pull-ci-openshift-windows-machine-config-operator-release-{version}-*-winc-*"
-      - "pull-ci-openshift-windows-machine-config-operator-*-e2e-*"
-
-      # Rehearse jobs (test changes to CI config before merging)
-      - "rehearse-*-periodic-ci-openshift-openshift-tests-private-release-{version}-*-winc-*"
-      - "rehearse-*-periodic-ci-openshift-windows-machine-config-operator-release-{version}-*"
-      - "rehearse-*-pull-ci-openshift-openshift-tests-private-release-{version}-*-winc-*"
-      - "rehearse-*-pull-ci-openshift-windows-machine-config-operator-*-winc-*"
-
-      # vSphere proxy/disconnected variants (for proxy and disconnected testing)
-      - "periodic-ci-openshift-openshift-tests-private-release-{version}-*-vsphere-ipi-proxy-*-winc-*"
-      - "periodic-ci-openshift-openshift-tests-private-release-{version}-*-vsphere-ipi-disconnected-*-winc-*"
-
-      # Postsubmit jobs (after merge)
-      - "branch-ci-openshift-windows-machine-config-operator-*"
-
-    # API settings
-    page_size: 150
-    max_pages: 10
-    max_workers: 5
-
-  # Prow GCS configuration (queries gs://origin-ci-test/logs/ directly)
-  prow_gcs:
-    # GCS bucket (default: origin-ci-test, publicly accessible for OpenShift CI)
-    bucket: "origin-ci-test"
-
-    # Job patterns to monitor (supports wildcards: * matches any characters)
-    # These patterns match periodic, pull, and rehearse WINC jobs
-    job_patterns:
-      # Periodic (nightly) jobs
-      - "periodic-ci-openshift-openshift-tests-private-release-4.21-*-winc-*"
-      - "periodic-ci-openshift-openshift-tests-private-release-4.22-*-winc-*"
-      - "periodic-ci-openshift-windows-machine-config-operator-release-4.21-*"
-      - "periodic-ci-openshift-windows-machine-config-operator-release-4.22-*"
-
-      # Pull request (presubmit) jobs
-      - "pull-ci-openshift-openshift-tests-private-*-winc-*"
-      - "pull-ci-openshift-windows-machine-config-operator-*-winc-*"
-
-      # Rehearse jobs (test changes to CI config)
-      - "rehearse-*-periodic-ci-openshift-openshift-tests-private-*-winc-*"
-      - "rehearse-*-periodic-ci-openshift-windows-machine-config-operator-*"
-
-    # Job name patterns to monitor (exact job names, no wildcards in GCS paths)
-    # Use the actual Prow job names from your periodic jobs
-    job_names:
-      # 4.21 jobs
-      - "periodic-ci-openshift-openshift-tests-private-release-4.21-amd64-aws-winc-e2e"
-      - "periodic-ci-openshift-openshift-tests-private-release-4.21-amd64-gcp-winc-e2e"
-      - "periodic-ci-openshift-openshift-tests-private-release-4.21-amd64-azure-winc-e2e"
-      - "periodic-ci-openshift-openshift-tests-private-release-4.21-amd64-nutanix-winc-e2e"
-      # 4.22 jobs
-      - "periodic-ci-openshift-openshift-tests-private-release-4.22-amd64-aws-winc-e2e"
-      - "periodic-ci-openshift-openshift-tests-private-release-4.22-amd64-gcp-winc-e2e"
-      - "periodic-ci-openshift-openshift-tests-private-release-4.22-amd64-azure-winc-e2e"
-      - "periodic-ci-openshift-openshift-tests-private-release-4.22-amd64-nutanix-winc-e2e"
-
-    # How many recent builds to fetch per job (default: 50)
-    max_builds_per_job: 50
-
-    # Parallel processing
-    max_workers: 5
-
   # gcsweb configuration (OpenShift CI web interface - no auth needed!)
   gcsweb:
     # Base URL
     url: "https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com"
     bucket: "test-platform-results"
 
-    # WINC job names from ../release repo (exact names from Prow)
+    # ========================================================================
+    # CUSTOMIZE: Job names to monitor for your team
+    # Find your periodic job names at: https://prow.ci.openshift.org/
+    # ========================================================================
     job_names:
-      # 4.19 WINC jobs
-      - "periodic-ci-openshift-openshift-tests-private-release-4.19-amd64-nightly-aws-ipi-ovn-winc-f14"
-      - "periodic-ci-openshift-openshift-tests-private-release-4.19-amd64-nightly-azure-ipi-ovn-winc-f14"
-      - "periodic-ci-openshift-openshift-tests-private-release-4.19-amd64-nightly-gcp-ipi-ovn-winc-f14"
-      - "periodic-ci-openshift-openshift-tests-private-release-4.19-amd64-nightly-nutanix-ipi-ovn-winc-f14"
-      - "periodic-ci-openshift-openshift-tests-private-release-4.19-amd64-nightly-vsphere-ipi-ovn-winc-f14"
-      - "periodic-ci-openshift-openshift-tests-private-release-4.19-amd64-nightly-vsphere-ipi-proxy-ovn-winc-f14"
-      - "periodic-ci-openshift-openshift-tests-private-release-4.19-amd64-nightly-vsphere-ipi-disconnected-ovn-winc-f28"
+      # Example: Replace these with your actual job names
+      - "periodic-ci-openshift-YOUR-REPO-release-4.XX-amd64-nightly-aws-e2e"
+      - "periodic-ci-openshift-YOUR-REPO-release-4.XX-amd64-nightly-azure-e2e"
+      - "periodic-ci-openshift-YOUR-REPO-release-4.XX-amd64-nightly-gcp-e2e"
 
-      # 4.21 WINC jobs
-      - "periodic-ci-openshift-openshift-tests-private-release-4.21-amd64-nightly-aws-ipi-ovn-winc-f7"
-      - "periodic-ci-openshift-openshift-tests-private-release-4.21-amd64-nightly-azure-ipi-ovn-winc-f7"
-      - "periodic-ci-openshift-openshift-tests-private-release-4.21-amd64-nightly-gcp-ipi-ovn-winc-f7"
-      - "periodic-ci-openshift-openshift-tests-private-release-4.21-amd64-nightly-nutanix-ipi-ovn-winc-f7"
-      - "periodic-ci-openshift-openshift-tests-private-release-4.21-amd64-nightly-vsphere-ipi-ovn-winc-f7"
-      - "periodic-ci-openshift-openshift-tests-private-release-4.21-amd64-nightly-4.21-upgrade-from-stable-4.20-aws-ipi-ovn-winc-f7"
-
-      # 4.22 WINC jobs
-      - "periodic-ci-openshift-openshift-tests-private-release-4.22-amd64-nightly-aws-ipi-ovn-winc-f7"
-      - "periodic-ci-openshift-openshift-tests-private-release-4.22-amd64-nightly-aws-upi-ovn-winc-f7"
-      - "periodic-ci-openshift-openshift-tests-private-release-4.22-amd64-nightly-azure-ipi-ovn-winc-f7"
-      - "periodic-ci-openshift-openshift-tests-private-release-4.22-amd64-nightly-gcp-ipi-ovn-winc-f7"
-      - "periodic-ci-openshift-openshift-tests-private-release-4.22-amd64-nightly-nutanix-ipi-ovn-winc-f7"
-      - "periodic-ci-openshift-openshift-tests-private-release-4.22-amd64-nightly-vsphere-ipi-ovn-winc-f7"
-      - "periodic-ci-openshift-openshift-tests-private-release-4.22-amd64-nightly-vsphere-ipi-proxy-ovn-winc-f28"
-      - "periodic-ci-openshift-openshift-tests-private-release-4.22-amd64-nightly-vsphere-ipi-disconnected-ovn-winc-f28"
-      - "periodic-ci-openshift-openshift-tests-private-release-4.22-amd64-nightly-4.22-upgrade-from-stable-4.21-aws-ipi-ovn-winc-f7"
-
-    # How many recent builds to fetch per job (reduced for initial testing)
+    # How many recent builds to fetch per job
     max_builds_per_job: 20
 
     # Parallel processing
     max_workers: 3
 
-  # prow_mcp configuration (POC - uses prow-mcp-server)
-  prow_mcp:
-    # MCP server URL (run prow-mcp-server separately)
-    # Default: http://localhost:3000
-    # For OpenShift POC: http://prow-mcp-server:3000 (in same namespace)
-    server_url: "http://localhost:3000"
+  # ReportPortal configuration (optional - requires authentication)
+  reportportal:
+    url: "https://reportportal-openshift.apps.dno.ocp-hub.prod.psi.redhat.com"
+    project: "prow"
+    # API token from environment variable: REPORTPORTAL_API_TOKEN
 
-    # WINC job names (same as gcsweb)
-    job_names:
-      # 4.21 WINC jobs
-      - "periodic-ci-openshift-openshift-tests-private-release-4.21-amd64-nightly-aws-ipi-ovn-winc-f7"
-      - "periodic-ci-openshift-openshift-tests-private-release-4.21-amd64-nightly-azure-ipi-ovn-winc-f7"
-      - "periodic-ci-openshift-openshift-tests-private-release-4.21-amd64-nightly-gcp-ipi-ovn-winc-f7"
-      - "periodic-ci-openshift-openshift-tests-private-release-4.21-amd64-nightly-nutanix-ipi-ovn-winc-f7"
-      - "periodic-ci-openshift-openshift-tests-private-release-4.21-amd64-nightly-vsphere-ipi-ovn-winc-f7"
+    # Job patterns (supports {version} placeholder)
+    job_patterns:
+      - "periodic-ci-openshift-YOUR-REPO-release-{version}-*"
+      - "pull-ci-openshift-YOUR-REPO-release-{version}-*"
 
-      # 4.22 WINC jobs
-      - "periodic-ci-openshift-openshift-tests-private-release-4.22-amd64-nightly-aws-ipi-ovn-winc-f7"
-      - "periodic-ci-openshift-openshift-tests-private-release-4.22-amd64-nightly-aws-upi-ovn-winc-f7"
-      - "periodic-ci-openshift-openshift-tests-private-release-4.22-amd64-nightly-azure-ipi-ovn-winc-f7"
-      - "periodic-ci-openshift-openshift-tests-private-release-4.22-amd64-nightly-gcp-ipi-ovn-winc-f7"
-      - "periodic-ci-openshift-openshift-tests-private-release-4.22-amd64-nightly-nutanix-ipi-ovn-winc-f7"
-      - "periodic-ci-openshift-openshift-tests-private-release-4.22-amd64-nightly-vsphere-ipi-ovn-winc-f7"
-
-    # Parallel processing
+    # API settings
+    page_size: 150
+    max_pages: 10
     max_workers: 5
 
 # Tracking configuration
@@ -183,9 +67,8 @@ tracking:
   # CUSTOMIZE: OpenShift versions to monitor for your team
   # ========================================================================
   versions:
-    - "4.19"
-    - "4.21"
-    - "4.22"
+    - "4.17"
+    - "4.18"
 
   # ========================================================================
   # CUSTOMIZE: Cloud platforms to track for your team
@@ -195,22 +78,19 @@ tracking:
     - "aws"
     - "azure"
     - "gcp"
-    - "nutanix"
-    - "vsphere"
 
   # ========================================================================
   # CUSTOMIZE: Test suite filter - only collect tests matching this pattern
   #
   # Examples for different teams:
-  #   - Windows Containers: "Windows_Containers"
   #   - Networking:         "Networking"
   #   - Storage:            "Storage"
+  #   - Windows Containers: "Windows_Containers"
   #   - Leave empty to collect all tests (no filter)
   #
   # The filter checks if this string appears in the raw test name/description
-  # before any processing. This helps exclude unrelated test suites.
   # ========================================================================
-  test_suite_filter: "Windows_Containers"
+  test_suite_filter: ""
 
   # How many days to look back when collecting data
   lookback_days: 30
@@ -218,11 +98,9 @@ tracking:
   # ========================================================================
   # CUSTOMIZE: Blocklist - exclude specific test IDs from dashboard
   # Add test IDs that should not appear in your team's dashboard
-  # Note: Dashboard automatically filters to show only OCP-* tests
   # ========================================================================
   blocklist:
-    - "OCP-60944"  # Example: Removed from test suite
-    - "OCP-66352"  # Example: Not relevant to team
+    - "OCP-00000"  # Example: test no longer relevant
 
 # Database configuration
 database:
