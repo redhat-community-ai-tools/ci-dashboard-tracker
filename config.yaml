@@ -35,9 +35,9 @@ collector:
     # ========================================================================
     job_names:
       # Example: Replace these with your actual job names
-      - "periodic-ci-openshift-YOUR-REPO-release-4.XX-amd64-nightly-aws-e2e"
-      - "periodic-ci-openshift-YOUR-REPO-release-4.XX-amd64-nightly-azure-e2e"
-      - "periodic-ci-openshift-YOUR-REPO-release-4.XX-amd64-nightly-gcp-e2e"
+      - "periodic-ci-openshift-COMPONENT-release-4.XX-amd64-nightly-aws-e2e"
+      - "periodic-ci-openshift-COMPONENT-release-4.XX-amd64-nightly-azure-e2e"
+      - "periodic-ci-openshift-COMPONENT-release-4.XX-amd64-nightly-gcp-e2e"
 
     # How many recent builds to fetch per job
     max_builds_per_job: 20
@@ -53,8 +53,8 @@ collector:
 
     # Job patterns (supports {version} placeholder)
     job_patterns:
-      - "periodic-ci-openshift-YOUR-REPO-release-{version}-*"
-      - "pull-ci-openshift-YOUR-REPO-release-{version}-*"
+      - "periodic-ci-openshift-COMPONENT-release-{version}-*"
+      - "pull-ci-openshift-COMPONENT-release-{version}-*"
 
     # API settings
     page_size: 150
