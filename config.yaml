@@ -19,9 +19,9 @@
 
 # Data collector configuration
 collector:
-  # Type of collector: "reportportal", "prow_mcp", "prow_gcs", "gcsweb"
-  # Recommended: gcsweb (no authentication required)
-  type: "gcsweb"
+  # Type of collector: "reportportal", "prow_gcs", "gcsweb"
+  # Default: gcsweb (no authentication required)
+  # You can omit 'type' to use the default gcsweb collector
 
   # gcsweb configuration (OpenShift CI web interface - no auth needed!)
   gcsweb:
