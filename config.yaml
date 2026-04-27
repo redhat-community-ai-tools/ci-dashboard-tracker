@@ -19,33 +19,11 @@
 
 # Data collector configuration
 collector:
-  # Type of collector: "reportportal", "prow_gcs", "gcsweb"
+  # Type of collector: "reportportal", "prow_gcs"
   # You must specify 'type' in your configuration
   # type: "reportportal"  # Uncomment and set your collector type
 
-  # gcsweb configuration (OpenShift CI web interface)
-  gcsweb:
-    # Base URL
-    url: "https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com"
-    bucket: "test-platform-results"
-
-    # ========================================================================
-    # CUSTOMIZE: Job names to monitor for your team
-    # Find your periodic job names at: https://prow.ci.openshift.org/
-    # ========================================================================
-    job_names:
-      # Example: Replace these with your actual job names
-      - "periodic-ci-openshift-COMPONENT-release-4.XX-amd64-nightly-aws-e2e"
-      - "periodic-ci-openshift-COMPONENT-release-4.XX-amd64-nightly-azure-e2e"
-      - "periodic-ci-openshift-COMPONENT-release-4.XX-amd64-nightly-gcp-e2e"
-
-    # How many recent builds to fetch per job
-    max_builds_per_job: 20
-
-    # Parallel processing
-    max_workers: 3
-
-  # ReportPortal configuration (optional - requires authentication)
+  # ReportPortal configuration
   reportportal:
     url: "https://reportportal-openshift.apps.dno.ocp-hub.prod.psi.redhat.com"
     project: "prow"

@@ -3,7 +3,6 @@
 from .base import BaseCollector, TestResult, JobRun, TestStatus
 from .reportportal import ReportPortalCollector
 from .prow_gcs import ProwGCSCollector
-from .gcsweb import GCSWebCollector
 
 __all__ = [
     'BaseCollector',
@@ -11,6 +10,5 @@ __all__ = [
     'JobRun',
     'TestStatus',
     'ReportPortalCollector',
-    'ProwGCSCollector',
-    'GCSWebCollector'
+    'ProwGCSCollector'
 ]

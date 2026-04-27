@@ -47,16 +47,14 @@ pip install -r requirements.txt
 3. Configure your jobs in `config.yaml`:
 ```yaml
 collector:
-  type: "gcsweb"  # No authentication required
+  type: "reportportal"  # or "prow_gcs"
   
-  gcsweb:
-    url: "https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com"
-    bucket: "test-platform-results"
-    job_names:
-      # Replace COMPONENT with your component name (networking, storage, etc.)
-      # Replace 4.XX with your OpenShift version (4.17, 4.18, etc.)
-      - "periodic-ci-openshift-COMPONENT-release-4.XX-amd64-nightly-aws-e2e"
-      - "periodic-ci-openshift-COMPONENT-release-4.XX-amd64-nightly-azure-e2e"
+  reportportal:
+    url: "https://your-reportportal-instance.com"
+    project: "your-project"
+    # API token from environment variable: REPORTPORTAL_API_TOKEN
+    job_patterns:
+      - "periodic-ci-openshift-COMPONENT-release-{version}-*"
 ```
 
 4. Collect test data:
@@ -87,7 +85,6 @@ See `config.yaml` for detailed configuration options.
 
 The dashboard supports multiple data collection methods:
 
-- **gcsweb**: OpenShift CI web interface, no authentication required
 - **reportportal**: ReportPortal API (requires authentication)
 - **prow_gcs**: Direct GCS bucket access (requires credentials)
 
@@ -197,7 +194,7 @@ tracking:
 - **Data Storage**: SQLite database
 - **Web Framework**: Flask
 - **Frontend**: Vanilla JavaScript with modern CSS
-- **Data Collection**: Pluggable collectors (gcsweb, ReportPortal, GCS)
+- **Data Collection**: Pluggable collectors (ReportPortal, Prow GCS)
 - **Export**: OpenPyXL for Excel, CSV, Markdown
 
 ## Contributing

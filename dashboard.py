@@ -47,7 +47,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 from collectors.reportportal import ReportPortalCollector
 from collectors.prow_gcs import ProwGCSCollector
-from collectors.gcsweb import GCSWebCollector
 from storage.database import DashboardDatabase
 from metrics.calculator import MetricsCalculator
 from web.server import create_app
@@ -74,7 +73,7 @@ def get_collector(config: dict):
 
     if not collector_type:
         print("Error: collector.type must be specified in config.yaml")
-        print("Valid options: reportportal, prow_gcs, gcsweb")
+        print("Valid options: reportportal, prow_gcs")
         sys.exit(1)
 
     # Add test_suite_filter from tracking config to collector config
@@ -88,10 +87,6 @@ def get_collector(config: dict):
         prow_config = config['collector']['prow_gcs'].copy()
         prow_config['test_suite_filter'] = test_suite_filter
         return ProwGCSCollector(prow_config)
-    elif collector_type == 'gcsweb':
-        gcsweb_config = config['collector']['gcsweb'].copy()
-        gcsweb_config['test_suite_filter'] = test_suite_filter
-        return GCSWebCollector(gcsweb_config)
     else:
         console.print(f"[red]Error: Unknown collector type: {collector_type}[/red]")
         sys.exit(1)
@@ -156,9 +151,6 @@ def collect(ctx, days, dry_run):
     elif collector_type in ['prow-gcs', 'prow_gcs']:
         # Prow GCS uses job_patterns (supports wildcards)
         expanded_patterns = config['collector']['prow_gcs']['job_patterns']
-    elif collector_type == 'gcsweb':
-        # gcsweb uses exact job names
-        expanded_patterns = config['collector']['gcsweb']['job_names']
     else:
         console.print(f"[red]Error: Unknown collector type: {collector_type}[/red]")
         sys.exit(1)
