@@ -20,10 +20,10 @@
 # Data collector configuration
 collector:
   # Type of collector: "reportportal", "prow_gcs", "gcsweb"
-  # Default: gcsweb (no authentication required)
-  # You can omit 'type' to use the default gcsweb collector
+  # You must specify 'type' in your configuration
+  # type: "reportportal"  # Uncomment and set your collector type
 
-  # gcsweb configuration (OpenShift CI web interface - no auth needed!)
+  # gcsweb configuration (OpenShift CI web interface)
   gcsweb:
     # Base URL
     url: "https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com"

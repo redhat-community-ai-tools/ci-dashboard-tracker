@@ -87,9 +87,50 @@ See `config.yaml` for detailed configuration options.
 
 The dashboard supports multiple data collection methods:
 
-- **gcsweb** (recommended): OpenShift CI web interface, no authentication required
+- **gcsweb**: OpenShift CI web interface, no authentication required
 - **reportportal**: ReportPortal API (requires authentication)
 - **prow_gcs**: Direct GCS bucket access (requires credentials)
+
+## AI-Powered Failure Analysis (Optional)
+
+The dashboard includes AI-powered test failure analysis using Claude via Google Vertex AI. This feature provides root cause analysis, component identification, and suggested actions for test failures.
+
+### Setup Vertex AI
+
+1. **Enable Vertex AI API** in your Google Cloud project:
+   ```bash
+   gcloud services enable aiplatform.googleapis.com
+   ```
+
+2. **Set environment variables**:
+   ```bash
+   export ANTHROPIC_VERTEX_PROJECT_ID="your-gcp-project-id"
+   export ANTHROPIC_VERTEX_REGION="global"  # or "us-east5" for regional
+   ```
+
+3. **Authenticate** with Google Cloud:
+   ```bash
+   gcloud auth application-default login
+   ```
+
+4. **Install the Anthropic SDK** with Vertex support:
+   ```bash
+   pip install 'anthropic[vertex]'
+   ```
+
+### Using AI Analysis
+
+Once configured, click the "AI Analyze" button on any failed test in the dashboard to get:
+- Root cause analysis
+- Affected component identification
+- Classification (product bug, automation issue, infrastructure problem, etc.)
+- Platform-specific failure patterns
+- Suggested remediation actions
+- JIRA-ready issue descriptions
+
+**Cost**: Approximately $0.02 per test analysis using Claude Sonnet.
+
+**Note**: The dashboard only supports Vertex AI for AI analysis. Direct Anthropic API access is not configured.
 
 ## Deployment
 
