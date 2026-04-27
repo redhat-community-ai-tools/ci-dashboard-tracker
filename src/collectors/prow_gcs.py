@@ -3,7 +3,7 @@ Direct GCS Collector - Access Prow test data directly from GCS
 
 Based on prow-mcp-server approach:
 1. Fetch job metadata from Prow API (prowjobs.js)
-2. Fetch test artifacts from GCS via gcsweb
+2. Fetch test artifacts from GCS storage
 3. Parse JUnit XML for test results
 4. Fetch build logs for failed tests
 
@@ -32,9 +32,12 @@ class ProwGCSCollector(BaseCollector):
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config)
 
-        # QE Private Prow (WINC jobs are here)
-        self.prow_url = config.get('prow_url', 'https://qe-private-deck-ci.apps.ci.l2s4.p1.openshiftapps.com')
-        self.gcs_url = config.get('gcs_url', 'https://gcsweb-qe-private-deck-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/qe-private-deck')
+        # Prow instance URLs (must be configured)
+        self.prow_url = config.get('prow_url')
+        self.gcs_url = config.get('gcs_url')
+
+        if not self.prow_url or not self.gcs_url:
+            raise ValueError("prow_gcs collector requires 'prow_url' and 'gcs_url' in config")
 
         # Authentication (optional for public Prow instances)
         self.api_token = self._get_api_token(config)
