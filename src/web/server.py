@@ -12,6 +12,7 @@ import os
 import logging
 import io
 import csv
+import html as html_module
 from openpyxl import Workbook
 from openpyxl.chart import PieChart, Reference
 from openpyxl.styles import Font, Alignment, PatternFill
@@ -304,8 +305,8 @@ def create_app(db_path: str, config: dict = None, config_file: str = 'config.yam
     @app.route('/logs')
     def view_logs():
         """Display test logs in a new page"""
-        log_content = request.args.get('content', '')
-        test_name = request.args.get('test', 'Test Log')
+        log_content = html_module.escape(request.args.get('content', ''))
+        test_name = html_module.escape(request.args.get('test', 'Test Log'))
 
         html = f'''
         <!DOCTYPE html>
